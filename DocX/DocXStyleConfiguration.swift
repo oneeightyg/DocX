@@ -8,7 +8,7 @@
 import Foundation
 
 /// Configuration parameters that control docx output
-public struct DocXConfiguration {
+public struct DocXStyleConfiguration {
     /// The URL for the styles XML file to include
     public let stylesURL: URL?
     
