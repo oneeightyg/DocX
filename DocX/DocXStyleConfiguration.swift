@@ -1,5 +1,5 @@
 //
-//  DocXConfiguration.swift
+//  DocXStyleConfiguration.swift
 //  
 //
 //  Created by Brad Andalman on 2023/1/2.
