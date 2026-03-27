@@ -54,6 +54,18 @@ public extension NSAttributedString.Key{
     
     /// A custom attribute that specifies the styleId to use for characters
     static let characterStyleId = NSAttributedString.Key("com.telethon.docx.attributedstringkey.characterStyleId")
+    
+    /// A custom attribute that specifies the numbering definition ID for a list paragraph
+    /// The value should be an `Int` corresponding to a `<w:numId>` in `numbering.xml`.
+    static let listNumberingId = NSAttributedString.Key("com.telethon.docx.attributedstringkey.listNumberingId")
+    
+    /// A custom attribute that specifies the indent level (ilvl) for a list paragraph
+    /// The value should be an `Int` (0-based)
+    static let listNumberingLevel = NSAttributedString.Key("com.telethon.docx.attributedstringkey.listNumberingLevel")
+    
+    /// A custom attribute that specifies the list style for a list paragraph
+    /// The value should be a `DocXListStyle` instance (e.g. `.bullet`, `.decimal`)
+    static let listStyle = NSAttributedString.Key("com.telethon.docx.attributedstringkey.listStyle")
 }
 
 /// Encapsulates different break types in a document.

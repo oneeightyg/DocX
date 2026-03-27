@@ -20,6 +20,9 @@ extension NSAttributedString{
         let range: NSRange
         let breakType: BreakType
         let styleId: String?
+        let numberingId: Int?
+        let numberingLevel: Int?
+        let listStyle: DocXListStyle?
         
         var styleElement: AEXMLElement? {
             if let styleId = styleId {
@@ -29,6 +32,23 @@ extension NSAttributedString{
             } else {
                 return nil
             }
+        }
+        
+        /// Returns a `<w:numPr>` element if this paragraph has list numbering info.
+        var numberingElement: AEXMLElement? {
+            guard let numId = numberingId else {
+                return nil
+            }
+            
+            let level = numberingLevel ?? 0
+            let numPr = AEXMLElement(name: "w:numPr")
+            numPr.addChild(AEXMLElement(name: "w:ilvl",
+                                         value: nil,
+                                         attributes: ["w:val": "\(level)"]))
+            numPr.addChild(AEXMLElement(name: "w:numId",
+                                         value: nil,
+                                         attributes: ["w:val": "\(numId)"]))
+            return numPr
         }
     }
     
@@ -86,10 +106,24 @@ extension NSAttributedString{
                 paragraphStyleId = nil
             }
             
+            // Determine whether list numbering attributes are present
+            let numberingId = self.attribute(.listNumberingId,
+                                             at: paragraphStyleRange.location,
+                                             effectiveRange: nil) as? Int
+            let numberingLevel = self.attribute(.listNumberingLevel,
+                                                at: paragraphStyleRange.location,
+                                                effectiveRange: nil) as? Int
+            let listStyle = self.attribute(.listStyle,
+                                           at: paragraphStyleRange.location,
+                                           effectiveRange: nil) as? DocXListStyle
+            
             // Create a ParagraphRange and add it to our list
             let paragraphRange = ParagraphRange(range: substringRange,
                                                 breakType: breakType,
-                                                styleId: paragraphStyleId)
+                                                styleId: paragraphStyleId,
+                                                numberingId: numberingId,
+                                                numberingLevel: numberingLevel,
+                                                listStyle: listStyle)
             ranges.append(paragraphRange)
         }
         return ranges

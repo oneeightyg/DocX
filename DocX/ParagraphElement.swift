@@ -53,6 +53,11 @@ class ParagraphElement:AEXMLElement{
         if let paragraphStyleElement = range.styleElement {
             paragraphPropertiesElement.addChild(paragraphStyleElement)
         }
+        
+        // If there's list numbering info for this paragraph, add it
+        if let numberingElement = range.numberingElement {
+            paragraphPropertiesElement.addChild(numberingElement)
+        }
 
         // If the paragraph properties element contains any properties, add it
         if paragraphPropertiesElement.children.count > 0 {

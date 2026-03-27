@@ -40,6 +40,26 @@ extension NSAttributedString{
             try compactStylesXML.write(to: stylesURL, atomically: true, encoding: .utf8)
         }
         
+        // Collect list numbering info from paragraph ranges.
+        // If any paragraphs have `.listNumberingId` and `.listStyle` attributes,
+        // we'll generate a numbering.xml automatically.
+        let allParagraphRanges = self.paragraphRanges
+        var numberingConfig = DocXNumberingConfiguration()
+        for range in allParagraphRanges {
+            if let numId = range.numberingId, let style = range.listStyle {
+                numberingConfig.register(numId: numId,
+                                         style: style,
+                                         level: range.numberingLevel ?? 0)
+            }
+        }
+        
+        // If numbering definitions were collected, write numbering.xml
+        if numberingConfig.hasNumbering {
+            let numberingURL = wordSubdirURL.appendingPathComponent("numbering").appendingPathExtension("xml")
+            let numberingXML = numberingConfig.numberingXML()
+            try numberingXML.write(to: numberingURL, atomically: true, encoding: .utf8)
+        }
+        
         let linkData=try Data(contentsOf: linkURL)
         var docOptions=AEXMLOptions()
         docOptions.parserSettings.shouldTrimWhitespace=false
@@ -65,6 +85,34 @@ extension NSAttributedString{
             
             // Add the Relationship
             linkDocument.root.addChild(name: "Relationship", value: nil, attributes: attrs)
+        }
+        
+        // The `document.xml.rels` file should include a link to numbering.xml
+        if numberingConfig.hasNumbering {
+            let newRelationshipIndex = self.lastRelationshipIdIndex(linkXML: linkDocument) + 1
+            let newIdString = "rId\(newRelationshipIndex)"
+            let attrs = ["Id": newIdString,
+                         "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering",
+                         "Target": "numbering.xml"]
+            linkDocument.root.addChild(name: "Relationship", value: nil, attributes: attrs)
+        }
+        
+        // If numbering definitions exist, add an Override for numbering.xml
+        // in [Content_Types].xml
+        if numberingConfig.hasNumbering {
+            let contentTypesURL = docURL.appendingPathComponent("[Content_Types].xml")
+            let contentTypesData = try Data(contentsOf: contentTypesURL)
+            var ctOptions = AEXMLOptions()
+            ctOptions.parserSettings.shouldTrimWhitespace = false
+            ctOptions.documentHeader.standalone = "yes"
+            ctOptions.escape = true
+            let contentTypesDoc = try AEXMLDocument(xml: contentTypesData, options: ctOptions)
+            contentTypesDoc.root.addChild(name: "Override", value: nil, attributes: [
+                "PartName": "/word/numbering.xml",
+                "ContentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"
+            ])
+            let updatedContentTypes = contentTypesDoc.xmlCompact
+            try updatedContentTypes.write(to: contentTypesURL, atomically: true, encoding: .utf8)
         }
         
         let linkRelations=self.prepareLinks(linkXML: linkDocument, mediaURL: mediaURL, options: options)
