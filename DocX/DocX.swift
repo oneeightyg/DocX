@@ -29,7 +29,7 @@ protocol DocX{
                       options:DocXOptions) throws ->String
     func writeDocX(to url:URL)throws
     func writeDocX(to url:URL, options:DocXOptions) throws
-    func prepareLinks(linkXML:AEXMLDocument, mediaURL:URL, options:DocXOptions)->[DocumentRelationship]
+    func prepareLinks(linkXML:AEXMLDocument, mediaURL:URL, options:DocXOptions, mediaFilenamePrefix: String)->[DocumentRelationship]
 }
 
 public let docXUTIType="org.openxmlformats.wordprocessingml.document"
@@ -66,10 +66,22 @@ public extension NSAttributedString.Key{
     /// A custom attribute that specifies the list style for a list paragraph
     /// The value should be a `DocXListStyle` instance (e.g. `.bullet`, `.decimal`)
     static let listStyle = NSAttributedString.Key("com.telethon.docx.attributedstringkey.listStyle")
+
+    /// A custom attribute that specifies the id for a footnote reference
+    static let footnoteReferenceId = NSAttributedString.Key("com.telethon.docx.attributedstringkey.footnoteReferenceId")
+
+    /// A custom attribute that specifies the id for an endnote reference
+    static let endnoteReferenceId = NSAttributedString.Key("com.telethon.docx.attributedstringkey.endnoteReferenceId")
+
+    /// A custom attribute that assigns a paragraph to a footnote body
+    static let footnoteBodyId = NSAttributedString.Key("com.telethon.docx.attributedstringkey.footnoteBodyId")
+
+    /// A custom attribute that assigns a paragraph to an endnote body
+    static let endnoteBodyId = NSAttributedString.Key("com.telethon.docx.attributedstringkey.endnoteBodyId")
 }
 
 /// Encapsulates different break types in a document.
-public enum BreakType: String, Equatable{
+public enum BreakType: String, Equatable {
     /// The text continues in the next line
     case wrap
     /// The text continues on the next page

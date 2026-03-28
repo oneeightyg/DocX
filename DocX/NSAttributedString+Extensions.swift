@@ -23,6 +23,8 @@ extension NSAttributedString{
         let numberingId: Int?
         let numberingLevel: Int?
         let listStyle: DocXListStyle?
+        let footnoteBodyId: Int?
+        let endnoteBodyId: Int?
         
         var styleElement: AEXMLElement? {
             if let styleId = styleId {
@@ -116,6 +118,12 @@ extension NSAttributedString{
             let listStyle = self.attribute(.listStyle,
                                            at: paragraphStyleRange.location,
                                            effectiveRange: nil) as? DocXListStyle
+            let footnoteBodyId = self.attribute(.footnoteBodyId,
+                                                at: paragraphStyleRange.location,
+                                                effectiveRange: nil) as? Int
+            let endnoteBodyId = self.attribute(.endnoteBodyId,
+                                               at: paragraphStyleRange.location,
+                                               effectiveRange: nil) as? Int
             
             // Create a ParagraphRange and add it to our list
             let paragraphRange = ParagraphRange(range: substringRange,
@@ -123,10 +131,21 @@ extension NSAttributedString{
                                                 styleId: paragraphStyleId,
                                                 numberingId: numberingId,
                                                 numberingLevel: numberingLevel,
-                                                listStyle: listStyle)
+                                                listStyle: listStyle,
+                                                footnoteBodyId: footnoteBodyId,
+                                                endnoteBodyId: endnoteBodyId)
             ranges.append(paragraphRange)
         }
         return ranges
+    }
+
+    /// Returns the paragraph ranges for paragraphs that should be in the main document
+    /// This excludes footnote and endnote body text
+    var documentParagraphRanges: [ParagraphRange] {
+        paragraphRanges.filter { range in
+            range.footnoteBodyId == nil &&
+            range.endnoteBodyId == nil
+        }
     }
     
     var usesVerticalForms:Bool{
