@@ -74,6 +74,14 @@ class DocXTests: XCTestCase {
         // Validate that writing was successful
         try validateDocX(url: url)
     }
+
+    func writeAndValidateSections(_ sections: [NSAttributedString],
+                                  options: DocXOptions = DocXOptions()) throws {
+        let basename = sections.first.map(docxBasename(attributedString:)) ?? UUID().uuidString
+        let url = self.tempURL.appendingPathComponent(basename).appendingPathExtension("docx")
+        try DocXWriter.write(sections: sections, to: url, options: options)
+        try validateDocX(url: url)
+    }
     
     /// This function tests writing a docx file using the macOS builtin exporter
     func writeAndValidateDocXUsingBuiltIn(attributedString: NSAttributedString) throws {
@@ -826,6 +834,140 @@ let string = """
             try writeAndValidateDocX(attributedString: text, options: options)
         }
         
+    }
+    
+    func testLists() throws {
+        let string = "List 1 Level 0\rList 1 Level 1\rList 2 Level 0\rList 2 Level 1"
+        let attributedString = NSMutableAttributedString(string: string)
+        let nsString = string as NSString
+        let listDefinitions: [(text: String, numId: Int, level: Int, style: DocXListStyle)] = [
+            ("List 1 Level 0", 1, 0, .bullet),
+            ("List 1 Level 1", 1, 1, .decimal),
+            ("List 2 Level 0", 2, 0, .lowerLetter),
+            ("List 2 Level 1", 2, 1, .upperRoman)
+        ]
+
+        for definition in listDefinitions {
+            let range = nsString.range(of: definition.text)
+            attributedString.addAttributes([.listNumberingId: definition.numId,
+                                            .listNumberingLevel: definition.level,
+                                            .listStyle: definition.style],
+                                           range: range)
+        }
+
+        let paragraphRanges = attributedString.paragraphRanges
+        XCTAssertEqual(paragraphRanges.count, 4)
+        for (index, definition) in listDefinitions.enumerated() {
+            XCTAssertEqual(paragraphRanges[index].numberingId, definition.numId)
+            XCTAssertEqual(paragraphRanges[index].numberingLevel, definition.level)
+            XCTAssertEqual(paragraphRanges[index].listStyle, definition.style)
+            XCTAssertNotNil(paragraphRanges[index].numberingElement)
+        }
+
+        var numberingConfig = DocXNumberingConfiguration()
+        for definition in listDefinitions {
+            numberingConfig.register(numId: definition.numId, style: definition.style, level: definition.level)
+        }
+        let xml = numberingConfig.numberingXML()
+        XCTAssertTrue(xml.contains("w:numbering"))
+        XCTAssertTrue(xml.contains("w:numId=\"1\""))
+        XCTAssertTrue(xml.contains("w:numId=\"2\""))
+        XCTAssertTrue(xml.contains("w:val=\"bullet\""))
+        XCTAssertTrue(xml.contains("w:val=\"decimal\""))
+        XCTAssertTrue(xml.contains("w:val=\"lowerLetter\""))
+        XCTAssertTrue(xml.contains("w:val=\"upperRoman\""))
+
+        try writeAndValidateDocX(attributedString: attributedString)
+    }
+
+    func testFootnotes() throws {
+        let string = "Body text note one and note two\rFirst footnote body\rSecond footnote body"
+        let attributedString = NSMutableAttributedString(string: string)
+        let nsString = string as NSString
+        attributedString.addAttribute(.footnoteReferenceId,
+                                      value: 1,
+                                      range: nsString.range(of: "note one"))
+        attributedString.addAttribute(.footnoteReferenceId,
+                                      value: 2,
+                                      range: nsString.range(of: "note two"))
+        attributedString.addAttribute(.footnoteBodyId,
+                                      value: 1,
+                                      range: nsString.range(of: "First footnote body"))
+        attributedString.addAttribute(.footnoteBodyId,
+                                      value: 2,
+                                      range: nsString.range(of: "Second footnote body"))
+
+        let noteConfig = DocXNoteConfiguration(attributedString: attributedString)
+        XCTAssertTrue(noteConfig.hasFootnotes)
+        let xml = noteConfig.notesXML(for: .footnote, linkRelations: [], options: DocXOptions())
+        XCTAssertTrue(xml.contains("w:footnotes"))
+        XCTAssertTrue(xml.contains("w:id=\"1\""))
+        XCTAssertTrue(xml.contains("w:id=\"2\""))
+        XCTAssertTrue(xml.contains("w:footnoteRef"))
+
+        try writeAndValidateDocX(attributedString: attributedString)
+    }
+
+    func testEndnotes() throws {
+        let string = "Body text note one and note two\rFirst endnote body\rSecond endnote body"
+        let attributedString = NSMutableAttributedString(string: string)
+        let nsString = string as NSString
+        attributedString.addAttribute(.endnoteReferenceId,
+                                      value: 1,
+                                      range: nsString.range(of: "note one"))
+        attributedString.addAttribute(.endnoteReferenceId,
+                                      value: 2,
+                                      range: nsString.range(of: "note two"))
+        attributedString.addAttribute(.endnoteBodyId,
+                                      value: 1,
+                                      range: nsString.range(of: "First endnote body"))
+        attributedString.addAttribute(.endnoteBodyId,
+                                      value: 2,
+                                      range: nsString.range(of: "Second endnote body"))
+
+        let noteConfig = DocXNoteConfiguration(attributedString: attributedString)
+        XCTAssertTrue(noteConfig.hasEndnotes)
+        let xml = noteConfig.notesXML(for: .endnote, linkRelations: [], options: DocXOptions())
+        XCTAssertTrue(xml.contains("w:endnotes"))
+        XCTAssertTrue(xml.contains("w:id=\"1\""))
+        XCTAssertTrue(xml.contains("w:id=\"2\""))
+        XCTAssertTrue(xml.contains("w:endnoteRef"))
+
+        try writeAndValidateDocX(attributedString: attributedString)
+    }
+
+    func testWriteSections() throws {
+        let section1 = NSMutableAttributedString(string: "Section 1 note\rSection 1 footnote body")
+        let section1String = section1.string as NSString
+        section1.addAttribute(.footnoteReferenceId,
+                              value: 1,
+                              range: section1String.range(of: "note"))
+        section1.addAttribute(.footnoteBodyId,
+                              value: 1,
+                              range: section1String.range(of: "Section 1 footnote body"))
+
+        let section2 = NSMutableAttributedString(string: "Section 2 note\rSection 2 footnote body")
+        let section2String = section2.string as NSString
+        section2.addAttribute(.footnoteReferenceId,
+                              value: 1,
+                              range: section2String.range(of: "note"))
+        section2.addAttribute(.footnoteBodyId,
+                              value: 1,
+                              range: section2String.range(of: "Section 2 footnote body"))
+
+        let sections = [section1 as NSAttributedString, section2 as NSAttributedString]
+        var options = DocXOptions()
+        options.footnoteNumberRestart = .eachSection
+
+        let xml = try sections[0].docXDocument(sectionStrings: sections, options: options)
+        XCTAssertTrue(xml.contains("w:type w:val=\"nextPage\""))
+        
+        // `components(separatedBy:) - 1` gives the number of times each XML marker appears
+        XCTAssertEqual(xml.components(separatedBy: "<w:sectPr").count - 1, 2)
+        XCTAssertEqual(xml.components(separatedBy: "<w:footnotePr>").count - 1, 2)
+        XCTAssertEqual(xml.components(separatedBy: "w:numRestart w:val=\"eachSect\"").count - 1, 2)
+
+        try writeAndValidateSections(sections, options: options)
     }
     
     // MARK: Performance Tests
