@@ -6,8 +6,9 @@
 //  Copyright © 2019 telethon k.k. All rights reserved.
 //
 
-import Foundation
 import AEXML
+import Foundation
+import UniformTypeIdentifiers
 
 #if canImport(UIKit)
 import UIKit
@@ -359,15 +360,15 @@ extension DocX where Self : NSAttributedString{
     ///    remember to add a corresponding entry for the extension
     ///    and mimetype to [Content_Types].xml**
     private func imageFileExtension(fileType:String) -> String? {
-        if (fileType == String(kUTTypeGIF)) {
+        if (fileType == UTType.gif.identifier) {
             return "gif"
-        } else if (fileType == String(kUTTypeJPEG)) {
+        } else if (fileType == UTType.jpeg.identifier) {
             return "jpeg"
-        } else if (fileType == String(kUTTypePNG)) {
+        } else if (fileType == UTType.png.identifier) {
             return "png"
-        } else if (fileType == String(kUTTypeTIFF)) {
+        } else if (fileType == UTType.tiff.identifier) {
             return "tiff"
-        } else if (fileType == String(kUTTypePDF)) {
+        } else if (fileType == UTType.pdf.identifier) {
             return "pdf"
         } else if (fileType == "com.adobe.photoshop-image") {
             return "psd"

@@ -517,11 +517,13 @@ Specifies the border displayed above a set of paragraphs which have the same set
     
     @available(macOS 12, *)
     func testAttributed() throws {
-        var att=AttributedString("Lorem ipsum dolor sit amet")
-        att.strokeColor = .green
-        att.strokeWidth = -2
-        att.font = NSFont(name: "Helvetica", size: 12)
-        att.foregroundColor = .gray
+        let font = try XCTUnwrap(NSFont(name: "Helvetica", size: 12))
+        var att=AttributedString(NSAttributedString(string: "Lorem ipsum dolor sit amet", attributes: [.font: font]))
+        var attributes = AttributeContainer()
+        attributes.appKit.strokeColor = .green
+        attributes.appKit.strokeWidth = -2
+        attributes.appKit.foregroundColor = .gray
+        att.mergeAttributes(attributes)
         
         try writeAndValidateDocX(attributedString: NSAttributedString(att))
     }
@@ -529,9 +531,11 @@ Specifies the border displayed above a set of paragraphs which have the same set
     
     @available(macOS 12, *)
     func testAttributed2() throws{
-        var att=AttributedString("Lorem ipsum dolor sit amet")
-        att.font = NSFont(name: "Helvetica", size: 12)
-        att[att.range(of: "Lorem")!].backgroundColor = .blue
+        let font = try XCTUnwrap(NSFont(name: "Helvetica", size: 12))
+        var att=AttributedString(NSAttributedString(string: "Lorem ipsum dolor sit amet", attributes: [.font: font]))
+        var attributes = AttributeContainer()
+        attributes.appKit.backgroundColor = .blue
+        att[try XCTUnwrap(att.range(of: "Lorem"))].mergeAttributes(attributes)
         try writeAndValidateDocX(attributedString: NSAttributedString(att))
         
     }
@@ -576,9 +580,11 @@ And this is a [link](http://www.example.com).
 ~~This~~ is a **Markdown** *string*.\\
 And this is a [link](http://www.example.com).
 """
-                             
+        
         var att=try AttributedString(markdown: mD)
-        att[att.range(of: "This")!].foregroundColor = .red
+        var attributes = AttributeContainer()
+        attributes.appKit.foregroundColor = .red
+        att[try XCTUnwrap(att.range(of: "This"))].mergeAttributes(attributes)
         try writeAndValidateDocX(attributedString: NSAttributedString(att))
     }
     
@@ -593,7 +599,9 @@ These are ~~emoji~~ faces 👶🏼👩🏾‍🦰👱🏻‍♀️👷🏿‍♀
 """
                              
         var att=try AttributedString(markdown: mD)
-        att[att.range(of: "This")!].foregroundColor = .red
+        var attributes = AttributeContainer()
+        attributes.appKit.foregroundColor = .red
+        att[try XCTUnwrap(att.range(of: "This"))].mergeAttributes(attributes)
         try writeAndValidateDocX(attributedString: NSAttributedString(att))
     }
     
@@ -911,4 +919,3 @@ Specifies the border displayed above a set of paragraphs which have the same set
 }
 
 #endif
-
