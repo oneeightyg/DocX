@@ -65,6 +65,9 @@ extension NSAttributedString{
         let string = self.string as NSString
         let fullRange = NSMakeRange(0, string.length)
                 
+        var textListNumberingID = 0
+        var isInList = false
+        
         string.enumerateSubstrings(in: fullRange, options: [.byParagraphs, .substringNotRequired])
         { _, substringRange, enclosingRange, _ in
             // Determine the range of the paragraph separator
@@ -109,13 +112,13 @@ extension NSAttributedString{
             }
             
             // Determine whether list numbering attributes are present
-            let numberingId = self.attribute(.listNumberingId,
+            var numberingId = self.attribute(.listNumberingId,
                                              at: paragraphStyleRange.location,
                                              effectiveRange: nil) as? Int
-            let numberingLevel = self.attribute(.listNumberingLevel,
+            var numberingLevel = self.attribute(.listNumberingLevel,
                                                 at: paragraphStyleRange.location,
                                                 effectiveRange: nil) as? Int
-            let listStyle = self.attribute(.listStyle,
+            var listStyle = self.attribute(.listStyle,
                                            at: paragraphStyleRange.location,
                                            effectiveRange: nil) as? DocXListStyle
             let footnoteBodyId = self.attribute(.footnoteBodyId,
@@ -124,6 +127,29 @@ extension NSAttributedString{
             let endnoteBodyId = self.attribute(.endnoteBodyId,
                                                at: paragraphStyleRange.location,
                                                effectiveRange: nil) as? Int
+            
+            if let paragraphStyle = self.attribute(.paragraphStyle, at: paragraphStyleRange.location, effectiveRange: nil) as? NSParagraphStyle {
+                let lists = paragraphStyle.textLists
+                if lists.count > 0{
+                    if !isInList{
+                        textListNumberingID += 1
+                        isInList = true
+                    }
+                    numberingId = textListNumberingID
+                }
+                else{
+                    isInList = false
+                }
+
+                for (idx, tL) in lists.enumerated(){
+                    
+                    let marker = NSTextList.MarkerFormat(tL.markerFormat.rawValue)
+                    // The documentation says this should be an enum but it is a string
+                    listStyle = DocXListStyle(markerFormat: marker.rawValue)
+                    numberingLevel = idx
+                }
+            }
+            
             
             // Create a ParagraphRange and add it to our list
             let paragraphRange = ParagraphRange(range: substringRange,

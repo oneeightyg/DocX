@@ -45,6 +45,23 @@ public enum DocXListStyle: Int, Hashable, Comparable {
             return "upperRoman"
         }
     }
+    
+    init(markerFormat: String) {
+        switch markerFormat{
+        case _ where  markerFormat.contains("decimal"):
+            self = .decimal
+        case _ where markerFormat.contains(NSTextList.MarkerFormat.lowercaseLatin.rawValue):
+            self = .lowerLetter
+        case _ where markerFormat.contains(NSTextList.MarkerFormat.lowercaseRoman.rawValue):
+            self = .lowerRoman
+        case _ where markerFormat.contains(NSTextList.MarkerFormat.uppercaseRoman.rawValue):
+            self = .upperRoman
+        case _ where markerFormat.contains(NSTextList.MarkerFormat.uppercaseLatin.rawValue):
+            self = .upperLetter
+        default:
+            self = .bullet
+        }
+    }
 }
 
 /// Describes one Word numbering definition keyed by `numId`.
