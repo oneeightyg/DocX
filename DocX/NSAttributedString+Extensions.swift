@@ -64,8 +64,15 @@ extension NSAttributedString{
         // contain separators
         let string = self.string as NSString
         let fullRange = NSMakeRange(0, string.length)
-                
+               
+        // The numbering ID to use when we encounter a new list
+        // (that doesn't continue from a previous list)
         var textListNumberingID = 0
+
+        // Tracks the last `numberingId` encountered for a list of a particular style
+        var textListNumberingTracker: [DocXListStyle: Int] = [:]
+        
+        // Whether we are currently in a list
         var isInList = false
         
         string.enumerateSubstrings(in: fullRange, options: [.byParagraphs, .substringNotRequired])
@@ -111,16 +118,7 @@ extension NSAttributedString{
                 paragraphStyleId = nil
             }
             
-            // Determine whether list numbering attributes are present
-            var numberingId = self.attribute(.listNumberingId,
-                                             at: paragraphStyleRange.location,
-                                             effectiveRange: nil) as? Int
-            var numberingLevel = self.attribute(.listNumberingLevel,
-                                                at: paragraphStyleRange.location,
-                                                effectiveRange: nil) as? Int
-            var listStyle = self.attribute(.listStyle,
-                                           at: paragraphStyleRange.location,
-                                           effectiveRange: nil) as? DocXListStyle
+            // Determine whether footnote or endnote attributes are present
             let footnoteBodyId = self.attribute(.footnoteBodyId,
                                                 at: paragraphStyleRange.location,
                                                 effectiveRange: nil) as? Int
@@ -128,26 +126,67 @@ extension NSAttributedString{
                                                at: paragraphStyleRange.location,
                                                effectiveRange: nil) as? Int
             
-            if let paragraphStyle = self.attribute(.paragraphStyle, at: paragraphStyleRange.location, effectiveRange: nil) as? NSParagraphStyle {
+            // Get the NSParagraphStyle attribute so we can check for list items
+            var numberingId : Int?
+            var numberingLevel: Int?
+            var listStyle: DocXListStyle?
+            if let paragraphStyle = self.attribute(.paragraphStyle,
+                                                   at: paragraphStyleRange.location,
+                                                   effectiveRange: nil) as? NSParagraphStyle {
+                // Does this paragraph belong to any lists?
                 let lists = paragraphStyle.textLists
-                if lists.count > 0{
-                    if !isInList{
-                        textListNumberingID += 1
-                        isInList = true
+                if lists.count > 0 {
+                    // `lists` represents the nested lists containing the paragraph,
+                    // in order from outermost to innermost. Therefore, the indent
+                    // level is just the length (less one because it's zero based)
+                    numberingLevel = lists.count - 1
+                    
+                    // Get the innermost list to determine the listStyle
+                    if let textList = lists.last {
+                        listStyle = DocXListStyle(markerFormat: textList.markerFormat)
                     }
-                    numberingId = textListNumberingID
+                    
+                    if !isInList,
+                       let listStyle = listStyle {
+                        // If we weren't already in a list, we are now
+                        isInList = true
+
+                        // Determine if this list is a continuation from a previous list
+                        //
+                        // If the `startingItemNumber` is greater than 1, then
+                        // we'll assume this list continues on from a previous
+                        // one of the same style
+                        //
+                        // Note that we don't enforce that `startingItemNumber`
+                        // must be one larger than the last item number of the
+                        // previous list: if it's greater than 1, we'll
+                        // just assume it's a continuation.
+                        if numberingLevel == 0,
+                           let firstTextList = lists.first,
+                           firstTextList.startingItemNumber > 1,
+                           let prevNumberingIdForStyle = textListNumberingTracker[listStyle] {
+                            // Reuse the previous numberingId
+                            numberingId = prevNumberingIdForStyle
+                        } else {
+                            // Increment the numberingId
+                            textListNumberingID += 1
+                            
+                            // Save the numberingId for this particular style
+                            textListNumberingTracker[listStyle] = textListNumberingID
+                        }
+                    }
+                    
+                    // If we haven't assigned a numberingId yet, use `textListNumberingID`
+                    if numberingId == nil {
+                        numberingId = textListNumberingID
+                    }
                 }
                 else{
                     isInList = false
                 }
-
-                for (idx, tL) in lists.enumerated(){
-                    
-                    let marker = NSTextList.MarkerFormat(tL.markerFormat.rawValue)
-                    // The documentation says this should be an enum but it is a string
-                    listStyle = DocXListStyle(markerFormat: marker.rawValue)
-                    numberingLevel = idx
-                }
+            } else {
+                // No paragraph style at all, therefore we aren't in a list
+                isInList = false
             }
             
             

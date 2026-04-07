@@ -5,8 +5,9 @@
 //  Provides native Word list numbering support.
 //
 
-import Foundation
 import AEXML
+import AppKit
+import Foundation
 
 /// Describes the visual style of a list numbering definition
 /// Each case must be a valid `numFmt`, as specified in the OOXML spec
@@ -46,19 +47,30 @@ public enum DocXListStyle: Int, Hashable, Comparable {
         }
     }
     
-    init(markerFormat: String) {
-        switch markerFormat{
-        case _ where  markerFormat.contains("decimal"):
+    // Defines a mapping from NSParagraphStyle attributes to DocX ones
+    private static let markerFormatMapping: [(NSTextList.MarkerFormat, DocXListStyle)] = [
+        (.decimal, .decimal),
+        (.lowercaseLatin, .lowerLetter),
+        (.lowercaseRoman, .lowerRoman),
+        (.uppercaseRoman, .upperRoman),
+        (.uppercaseLatin, .upperLetter),
+    ]
+
+    // Initializer that creates a DocXListStyle from an NSText.MarkerFormat
+    init(markerFormat: NSTextList.MarkerFormat) {
+        switch markerFormat {
+        case .decimal:
             self = .decimal
-        case _ where markerFormat.contains(NSTextList.MarkerFormat.lowercaseLatin.rawValue):
+        case .lowercaseLatin:
             self = .lowerLetter
-        case _ where markerFormat.contains(NSTextList.MarkerFormat.lowercaseRoman.rawValue):
+        case .lowercaseRoman:
             self = .lowerRoman
-        case _ where markerFormat.contains(NSTextList.MarkerFormat.uppercaseRoman.rawValue):
-            self = .upperRoman
-        case _ where markerFormat.contains(NSTextList.MarkerFormat.uppercaseLatin.rawValue):
+        case .uppercaseLatin:
             self = .upperLetter
+        case .uppercaseRoman:
+            self = .upperRoman
         default:
+            // Everything else uses bullet
             self = .bullet
         }
     }

@@ -841,43 +841,79 @@ let string = """
     }
     
     func testLists() throws {
-        let string = "List 1 Level 0\rList 1 Level 1\rList 2 Level 0\rList 2 Level 1"
+        let string = """
+List 1 Level 0
+List 1 Level 1
+Some text
+List 2 Level 0
+List 2 Level 1
+Some more text
+List 3 Level 0
+"""
         let attributedString = NSMutableAttributedString(string: string)
         let nsString = string as NSString
-        let listDefinitions: [(text: String, numId: Int, level: Int, style: DocXListStyle)] = [
-            ("List 1 Level 0", 1, 0, .bullet),
-            ("List 1 Level 1", 1, 1, .decimal),
-            ("List 2 Level 0", 2, 0, .lowerLetter),
-            ("List 2 Level 1", 2, 1, .upperRoman)
+
+        // Build NSTextList objects for two separate lists with nested levels
+        //
+        let list1Level0 = NSTextList(markerFormat: .decimal, options: 0)
+        let list1Level1 = NSTextList(markerFormat: .disc, options: 0)
+        
+        let list2Level0 = NSTextList(markerFormat: .lowercaseLatin, options: 0)
+        let list2Level1 = NSTextList(markerFormat: .uppercaseRoman, options: 0)
+        
+        // Create a third list and set its `startingItemNumber` to 2, to indicate
+        // that it continues from the first list
+        let list3Level0 = NSTextList(markerFormat: .decimal, options: 0)
+        list3Level0.startingItemNumber = 2
+
+        let paragraphDefinitions: [(text: String, textLists: [NSTextList], expectedStyle: DocXListStyle, expectedLevel: Int)] = [
+            ("List 1 Level 0", [list1Level0], .decimal, 0),
+            ("List 1 Level 1", [list1Level0, list1Level1], .bullet, 1),
+            ("List 2 Level 0", [list2Level0], .lowerLetter, 0),
+            ("List 2 Level 1", [list2Level0, list2Level1], .upperRoman, 1),
+            ("List 3 Level 0", [list3Level0], .decimal, 0),
         ]
 
-        for definition in listDefinitions {
+        for definition in paragraphDefinitions {
             let range = nsString.range(of: definition.text)
-            attributedString.addAttributes([.listNumberingId: definition.numId,
-                                            .listNumberingLevel: definition.level,
-                                            .listStyle: definition.style],
-                                           range: range)
+            let paragraphStyle = NSMutableParagraphStyle()
+            paragraphStyle.textLists = definition.textLists
+            attributedString.addAttribute(.paragraphStyle, value: paragraphStyle, range: range)
         }
 
         let paragraphRanges = attributedString.paragraphRanges
-        XCTAssertEqual(paragraphRanges.count, 4)
-        for (index, definition) in listDefinitions.enumerated() {
-            XCTAssertEqual(paragraphRanges[index].numberingId, definition.numId)
-            XCTAssertEqual(paragraphRanges[index].numberingLevel, definition.level)
-            XCTAssertEqual(paragraphRanges[index].listStyle, definition.style)
-            XCTAssertNotNil(paragraphRanges[index].numberingElement)
+        XCTAssertEqual(paragraphRanges.count, 7)
+
+        // Map only the list paragraphs (skip the non-list text at indices 2 and 5)
+        let listParagraphIndices = [0, 1, 3, 4, 6]
+        for (defIndex, paraIndex) in listParagraphIndices.enumerated() {
+            let definition = paragraphDefinitions[defIndex]
+            XCTAssertNotNil(paragraphRanges[paraIndex].numberingId)
+            XCTAssertEqual(paragraphRanges[paraIndex].numberingLevel, definition.expectedLevel)
+            XCTAssertEqual(paragraphRanges[paraIndex].listStyle, definition.expectedStyle)
+            XCTAssertNotNil(paragraphRanges[paraIndex].numberingElement)
         }
 
+        // The first two lists should have different numbering IDs
+        XCTAssertNotEqual(paragraphRanges[0].numberingId, paragraphRanges[3].numberingId)
+        
+        // The first and third lists should shared the same ID
+        XCTAssertEqual(paragraphRanges[0].numberingId, paragraphRanges[6].numberingId)
+
         var numberingConfig = DocXNumberingConfiguration()
-        for definition in listDefinitions {
-            numberingConfig.register(numId: definition.numId, style: definition.style, level: definition.level)
+        for (defIndex, paraIndex) in listParagraphIndices.enumerated() {
+            if let numId = paragraphRanges[paraIndex].numberingId,
+               let style = paragraphRanges[paraIndex].listStyle {
+                numberingConfig.register(numId: numId, style: style, level: paragraphDefinitions[defIndex].expectedLevel)
+            }
         }
+        
+        // This isn't a great check, but at least make sure that some of the XML
+        // appears correct
         let xml = numberingConfig.numberingXML()
         XCTAssertTrue(xml.contains("w:numbering"))
-        XCTAssertTrue(xml.contains("w:numId=\"1\""))
-        XCTAssertTrue(xml.contains("w:numId=\"2\""))
-        XCTAssertTrue(xml.contains("w:val=\"bullet\""))
         XCTAssertTrue(xml.contains("w:val=\"decimal\""))
+        XCTAssertTrue(xml.contains("w:val=\"bullet\""))
         XCTAssertTrue(xml.contains("w:val=\"lowerLetter\""))
         XCTAssertTrue(xml.contains("w:val=\"upperRoman\""))
 
